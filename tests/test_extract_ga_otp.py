@@ -106,7 +106,7 @@ check("Test1: URI ohne digits/algorithm (Defaults SHA1/6/TOTP)",
 check("Test1: kein 'digits=' und kein 'algorithm=' in URI",
       "digits=" not in r.stdout and "algorithm=" not in r.stdout, r.stdout)
 check("Test1: KEINE Hotp-Warnung bei type=2 (TOTP)",
-      "Bitwarden unterstützt kein HOTP" not in r.stderr, r.stderr)
+      "Bitwarden does not support HOTP" not in r.stderr, r.stderr)
 # konserviere die erzeugte otpauth-URI für den Chain-Test
 chain_uri = None
 for line in r.stdout.splitlines():
@@ -141,7 +141,7 @@ r = run(SCRIPT, [make_uri(payload([otp_params(SECRET, name="h", issuer="I",
                                               algorithm=1, digits=1, typ=1, counter=42)]))])
 check("type=1 -> hotp-Schema + counter + Warnung",
       r.returncode == 0 and "otpauth://hotp/" in r.stdout and "counter=42" in r.stdout
-      and "Bitwarden unterstützt kein HOTP" in r.stderr,
+      and "Bitwarden does not support HOTP" in r.stderr,
       f"rc={r.returncode} out={r.stdout.strip()} err={r.stderr.strip()}")
 
 # ---------- Test 1e: unbekannte Enum-Werte -> Warnung + Default ----------
@@ -150,9 +150,9 @@ r = run(SCRIPT, [make_uri(payload([otp_params(SECRET, name="u", issuer="I",
 check("unbekannte Enums: Defaults + Warnung auf stderr",
       r.returncode == 0 and "otpauth://totp/" in r.stdout
       and "digits=" not in r.stdout and "algorithm=" not in r.stdout
-      and "Unbekannter Algorithmus" in r.stderr
-      and "Unbekannter digits" in r.stderr
-      and "Unbekannter type" in r.stderr,
+      and "Unknown algorithm value" in r.stderr
+      and "Unknown digits value" in r.stderr
+      and "Unknown type value" in r.stderr,
       f"out={r.stdout.strip()} err={r.stderr.strip()}")
 
 # ---------- Test 2: zwei Konten + unbekanntes varint-Feld (batch_index) ----------
@@ -166,7 +166,7 @@ uri2 = make_uri(proto2)
 
 r2 = run(SCRIPT, [uri2])
 check("Test2: Exit-Code 0", r2.returncode == 0, f"rc={r2.returncode}")
-check("Test2: zwei Konto-Blöcke", r2.stdout.count("Konto ") == 2, r2.stdout)
+check("Test2: zwei Konto-Blöcke", r2.stdout.count("Account ") == 2, r2.stdout)
 check("Test2: Konto1-Secret", "JBSWY3DPEHPK3PXP" in r2.stdout, r2.stdout)
 exp2 = base64.b32encode(secret2).decode().rstrip("=")
 check("Test2: Konto2-Secret", exp2 in r2.stdout, f"exp={exp2}")
@@ -176,7 +176,7 @@ check("Test2: Konto2 algorithm=SHA256 & digits=8 im URI",
 # ---------- Test 3: kaputte Base64 -> Fehler, Exit-Code 1 ----------
 r3 = run(SCRIPT, ["otpauth-migration://offline?data=!!!not-base64!!!"])
 check("Test3: Exit-Code 1", r3.returncode == 1, f"rc={r3.returncode}")
-check("Test3: Fehlermeldung auf stderr", "Fehler" in r3.stderr, r3.stderr)
+check("Test3: Fehlermeldung auf stderr", "Error" in r3.stderr, r3.stderr)
 
 # ---------- Zusatz: Datei-Eingabe (@file und Plain-File), Whitespace/Quotes ----------
 tmp_uri_file = REPO_ROOT / "tests" / ".test_uri.txt"
@@ -192,12 +192,12 @@ check("Datei (plain): Exit 0 & korrekt", r5.returncode == 0 and "JBSWY3DPEHPK3PX
 
 # ---------- Zusatz: kein Argument -> Usage ----------
 r6 = run(SCRIPT, [])
-check("Kein Argument: Usage auf stderr", r6.returncode != 0 and "Aufruf" in r6.stderr,
+check("Kein Argument: Usage auf stderr", r6.returncode != 0 and "Usage" in r6.stderr,
       f"rc={r6.returncode}")
 
 # ---------- Zusatz: 0 Konten -> Fehler ----------
 r7 = run(SCRIPT, [make_uri(field_varint(2, 0))])  # nur unbekanntes Feld, keine Konten
-check("0 Konten: Exit 1 + Hinweis", r7.returncode == 1 and "unvollständig" in r7.stderr,
+check("0 Konten: Exit 1 + Hinweis", r7.returncode == 1 and "incomplete" in r7.stderr,
       f"rc={r7.returncode} stderr={r7.stderr.strip()}")
 
 # ---------- CHAIN-Test: erzeugte otpauth-URI an totp_check.py verfüttern ----------
@@ -206,8 +206,8 @@ if chain_uri:
     rc = run(TOTP_CHECK, [chain_uri])
     check("Chain: totp_check Exit 0", rc.returncode == 0, f"rc={rc.returncode}")
     check("Chain: Kopfzeile SHA1/6/30",
-          "Algorithmus=SHA1" in rc.stdout and "Ziffern=6" in rc.stdout
-          and "Periode=30s" in rc.stdout,
+          "algorithm=SHA1" in rc.stdout and "digits=6" in rc.stdout
+          and "period=30s" in rc.stdout,
           rc.stdout.splitlines()[0] if rc.stdout else "")
     check("Chain: ein Code erscheint",
           any(c.isdigit() and len(c) == 6 for c in rc.stdout.replace("|", " ").split()),

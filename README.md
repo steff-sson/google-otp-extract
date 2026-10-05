@@ -23,9 +23,9 @@ python3 extract_ga_otp.py @/path/to/uri.txt
 The second form reads the URI from a file (leading/trailing whitespace and surrounding quotes are tolerated). Example output:
 
 ```
-Konto 1: Issuer='TestIssuer'  Name='Test:user@example.com'
+Account 1: Issuer='TestIssuer'  Name='Test:user@example.com'
   Secret (Base32): JBSWY3DPEHPK3PXP
-  Für Bitwarden einfügen:
+  Paste into Bitwarden:
     otpauth://totp/TestIssuer:Test:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=TestIssuer
 ```
 
@@ -42,10 +42,10 @@ python3 totp_check.py "<key>" --time 59      # fix a timestamp (testing)
 Prints a header with the resolved parameters and a table of codes for time-window offsets −3..+3, marking the current window:
 
 ```
-  Offset | Fensterstart (UTC)     | noch(s) | Code
+  Offset | Window start (UTC)    | left(s) | Code
   -------+------------------------+---------+----------
       -1 | 2026-10-05 11:41:00    |       - | 404836
-       0 | 2026-10-05 11:41:30    |      10 | 182259  <-- aktuell
+       0 | 2026-10-05 11:41:30    |      10 | 182259  <-- current
        1 | 2026-10-05 11:42:00    |       - | 288386
 ```
 

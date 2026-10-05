@@ -25,10 +25,10 @@ def run(args):
 
 
 def offset0_code(out):
-    """Extrahiert den Code der Offset-0-Zeile (markiert mit <-- aktuell)."""
+    """Extracts the code of the offset-0 line (marked with <-- current)."""
     for line in out.splitlines():
-        if "<-- aktuell" in line:
-            # Spalten: Offset | Fensterstart | noch | Code <-- aktuell
+        if "<-- current" in line:
+            # Columns: Offset | Window start | left | Code <-- current
             return line.split("|")[3].split()[0]
     return None
 
@@ -59,8 +59,8 @@ r = run([B32_SHA256, "--time", "59", "--digits", "8", "--algo", "SHA256"])
 check("Test2 SHA256: Offset-0-Code == 46119246",
       offset0_code(r.stdout) == "46119246", offset0_code(r.stdout))
 check("Test2 SHA256: Kopfzeile zeigt SHA256/8/30",
-      "Algorithmus=SHA256" in r.stdout and "Ziffern=8" in r.stdout
-      and "Periode=30s" in r.stdout, r.stdout.splitlines()[0])
+      "algorithm=SHA256" in r.stdout and "digits=8" in r.stdout
+      and "period=30s" in r.stdout, r.stdout.splitlines()[0])
 
 # ---------- Test 3: SHA512, T=59 -> 90693936 ----------
 r = run([B32_SHA512, "--time", "59", "--digits", "8", "--algo", "SHA512"])
@@ -75,7 +75,7 @@ r = run([messy, "--time", "59", "--digits", "8"])
 check("Test4 Normalisierung: Offset-0-Code == 94287082 (kanonische Form)",
       offset0_code(r.stdout) == "94287082", f"input={messy!r} -> {offset0_code(r.stdout)}")
 check("Test4: Quelle = nackter Base32-Secret",
-      "nackter Base32-Secret" in r.stdout, r.stdout.splitlines()[0])
+      "bare Base32 secret" in r.stdout, r.stdout.splitlines()[0])
 
 # ---------- Test 5: otpauth-URI mit digits=8&period=30&algorithm=SHA256 ----------
 uri = ("otpauth://totp/Test:user@example.com?secret=" + B32_SHA256 +
@@ -83,17 +83,17 @@ uri = ("otpauth://totp/Test:user@example.com?secret=" + B32_SHA256 +
 r = run([uri, "--time", "59"])
 check("Test5 URI: Exit 0", r.returncode == 0, f"rc={r.returncode}")
 check("Test5 URI: Kopfzeile zeigt SHA256/8/30",
-      "Algorithmus=SHA256" in r.stdout and "Ziffern=8" in r.stdout
-      and "Periode=30s" in r.stdout, r.stdout.splitlines()[0])
+      "algorithm=SHA256" in r.stdout and "digits=8" in r.stdout
+      and "period=30s" in r.stdout, r.stdout.splitlines()[0])
 check("Test5 URI: Quelle = otpauth-URI",
-      "Quelle: otpauth-URI" in r.stdout, r.stdout.splitlines()[0])
+      "source: otpauth URI" in r.stdout, r.stdout.splitlines()[0])
 check("Test5 URI: Offset-0-Code == 46119246",
       offset0_code(r.stdout) == "46119246", offset0_code(r.stdout))
 
 # ---------- Zusatz: ungültiger Base32 -> Fehler, Exit 1 ----------
 r = run(["!!!kein-base32!!!", "--time", "59"])
 check("Ungültiger Base32: Exit 1 + Fehlermeldung",
-      r.returncode == 1 and "Fehler" in r.stderr, f"rc={r.returncode} stderr={r.stderr.strip()}")
+      r.returncode == 1 and "Error" in r.stderr, f"rc={r.returncode} stderr={r.stderr.strip()}")
 
 # ---------- Zusatz: URI ohne secret -> Fehler, Exit 1 ----------
 r = run(["otpauth://totp/x?digits=6"])
@@ -103,19 +103,19 @@ check("URI ohne secret: Exit 1", r.returncode == 1 and "secret" in r.stderr,
 # ---------- Zusatz: HOTP-URI -> Warnung + counter-Code ----------
 r = run(["otpauth://hotp/x?secret=" + B32_SHA1 + "&counter=42&digits=6"])
 check("HOTP-URI: Warnung + Counter-Code",
-      r.returncode == 0 and "HOTP-Code für counter=42" in r.stdout
-      and "TOTP-Zeitvergleich" in r.stderr,
+      r.returncode == 0 and "HOTP code for counter=42" in r.stdout
+      and "TOTP time comparison" in r.stderr,
       f"rc={r.returncode} out={r.stdout.strip()} err={r.stderr.strip()}")
 
 # ---------- Zusatz: Kopfzeile enthält Secret-Länge (20 Bytes) ----------
 r = run([B32_SHA1, "--time", "59"])
 check("Kopfzeile: Secret-Länge 20 Bytes",
-      "Secret-Länge=20 Bytes" in r.stdout, r.stdout.splitlines()[0])
+      "secret length=20 bytes" in r.stdout, r.stdout.splitlines()[0])
 
 # ---------- Zusatz: Hinweiszeile Zeitabweichung vorhanden ----------
 r = run([B32_SHA1, "--time", "59"])
 check("Hinweiszeile Zeitabweichung",
-      "Offset -1 oder +1" in r.stdout and "weicht die Uhr" in r.stdout,
+      "offset -1 or +1" in r.stdout and "clock drifts" in r.stdout,
       "ok")
 
 print()

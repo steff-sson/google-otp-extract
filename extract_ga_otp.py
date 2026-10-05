@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# Offline-Decoder für Google Authenticator Export (otpauth-migration). Läuft ohne Netzwerk.
+# Offline decoder for Google Authenticator export (otpauth-migration). Runs without a network.
 #
-# Dekodiert eine Export-URI der Form
+# Decodes an export URI of the form
 #   otpauth-migration://offline?data=<urlencoded-urlsafe-base64-protobuf>
-# offline und gibt pro Konto den Base32-Secret sowie eine fertige
-# otpauth://totp/...-URI aus, die man z. B. in Bitwarden einfügen kann.
+# offline and prints, per account, the Base32 secret plus a ready-to-paste
+# otpauth://totp/... URI (e.g. for Bitwarden).
 #
-# Aufruf:
+# Usage:
 #   python3 extract_ga_otp.py "<URI>"
-#   python3 extract_ga_otp.py @/pfad/zur/datei.txt
+#   python3 extract_ga_otp.py @/path/to/file.txt
 #
-# Nur Python-Standardbibliothek, keinerlei Netzwerkzugriff.
+# Python standard library only, no network access of any kind.
 
 import base64
 import binascii
@@ -18,8 +18,8 @@ import os
 import sys
 import urllib.parse
 
-# Enum-Zuordnungen aus dem Google-otpauth-Migration-Protobuf.
-# WICHTIG: 0 = UNSPECIFIED -> Default (SHA1 / 6 Stellen / TOTP).
+# Enum mappings from the Google otpauth-migration protobuf.
+# IMPORTANT: 0 = UNSPECIFIED -> default (SHA1 / 6 digits / TOTP).
 # algorithm: 1=SHA1, 2=SHA256, 3=SHA512, 4=MD5
 # digits:    1=SIX(6), 2=EIGHT(8), 3=SEVEN(7)
 # type:      1=HOTP, 2=TOTP
@@ -29,19 +29,19 @@ TYPES = {0: "TOTP", 1: "HOTP", 2: "TOTP"}
 
 
 def usage(stream=sys.stderr):
-    print("Aufruf:", file=stream)
+    print("Usage:", file=stream)
     print('  python3 extract_ga_otp.py "<URI>"', file=stream)
-    print("  python3 extract_ga_otp.py @/pfad/zur/datei.txt", file=stream)
-    print("Die URI ist ein Google-Authenticator-Export der Form", file=stream)
+    print("  python3 extract_ga_otp.py @/path/to/file.txt", file=stream)
+    print("The URI is a Google Authenticator export of the form", file=stream)
     print("  otpauth-migration://offline?data=<urlencoded-urlsafe-base64>", file=stream)
 
 
 def read_input(arg):
-    """Liefert den Rohtext der URI – aus dem Argument oder aus einer Datei."""
+    """Returns the raw URI text — from the argument or from a file."""
     if arg.startswith("otpauth-migration://"):
         return arg
-    # "@pfad" erzwingt Datei-Behandlung; sonst: wenn das Argument eine
-    # existierende Datei ist, ebenfalls als Datei behandeln.
+    # "@path" forces file handling; otherwise, if the argument is an existing
+    # file, treat it as a file too.
     if arg.startswith("@"):
         path = arg[1:]
     elif os.path.isfile(arg):
@@ -53,7 +53,7 @@ def read_input(arg):
 
 
 def clean_uri(raw):
-    """Entfernt führendes/trailing Whitespace und umschließende Anführungszeichen."""
+    """Strips leading/trailing whitespace and surrounding quotes."""
     raw = raw.strip()
     while len(raw) >= 2 and raw[0] in "'\"`" and raw[-1] == raw[0]:
         raw = raw[1:-1].strip()
@@ -61,28 +61,28 @@ def clean_uri(raw):
 
 
 def extract_data(uri):
-    """Zerlegt die URI und liefert den (bereits URL-dekodierten) data-Wert."""
+    """Splits the URI and returns the (already URL-decoded) data value."""
     parts = urllib.parse.urlparse(uri)
     if parts.scheme != "otpauth-migration":
-        raise ValueError("Keine gültige otpauth-migration://-URI")
+        raise ValueError("Not a valid otpauth-migration:// URI")
     params = urllib.parse.parse_qs(parts.query)
     if "data" not in params:
-        raise ValueError('Parameter "data" fehlt in der URI')
+        raise ValueError('Parameter "data" is missing in the URI')
     return params["data"][0]
 
 
 def decode_data(data):
-    """URL-safe Base64 -> Standard-Base64 -> Bytes (mit Fehlerprüfung)."""
+    """URL-safe Base64 -> standard Base64 -> bytes (with validation)."""
     data = data.replace("-", "+").replace("_", "/")
     data += "=" * ((4 - len(data) % 4) % 4)
     try:
         return base64.b64decode(data, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise ValueError(f"Ungültige Base64-Daten: {exc}") from exc
+        raise ValueError(f"Invalid Base64 data: {exc}") from exc
 
 
 class Reader:
-    """Minimaler Byte-Reader für einen handgeschriebenen Protobuf-Parser."""
+    """Minimal byte reader for the hand-written protobuf parser."""
 
     def __init__(self, data):
         self.data = data
@@ -93,7 +93,7 @@ class Reader:
 
     def read_byte(self):
         if self.pos >= len(self.data):
-            raise ValueError("Protobuf-Daten unerwartet zu Ende (truncated)")
+            raise ValueError("Protobuf data ended unexpectedly (truncated)")
         b = self.data[self.pos]
         self.pos += 1
         return b
@@ -108,11 +108,11 @@ class Reader:
                 return result
             shift += 7
             if shift > 63:
-                raise ValueError("Varint zu lang")
+                raise ValueError("Varint too long")
 
     def read_bytes(self, length):
         if self.pos + length > len(self.data):
-            raise ValueError("Length-delimited Feld überschreitet Datenende")
+            raise ValueError("Length-delimited field exceeds end of data")
         chunk = self.data[self.pos:self.pos + length]
         self.pos += length
         return chunk
@@ -121,7 +121,7 @@ class Reader:
         return self.read_varint()
 
     def skip(self, wire_type):
-        """Überspringt ein unbekanntes Feld anhand seines Wire Type."""
+        """Skips an unknown field based on its wire type."""
         if wire_type == 0:      # varint
             self.read_varint()
         elif wire_type == 2:    # length-delimited
@@ -131,11 +131,11 @@ class Reader:
         elif wire_type == 1:    # fixed64
             self.read_bytes(8)
         else:
-            raise ValueError(f"Unbekannter Wire Type {wire_type}")
+            raise ValueError(f"Unknown wire type {wire_type}")
 
 
 def parse_otp_parameters(data):
-    """Parst eine OtpParameters-Message (Feld 1 der MigrationPayload)."""
+    """Parses an OtpParameters message (field 1 of the MigrationPayload)."""
     r = Reader(data)
     account = {
         "secret": b"",
@@ -144,7 +144,7 @@ def parse_otp_parameters(data):
         "algorithm": 0,   # SHA1
         "digits": 0,      # 6
         "type": 0,        # TOTP
-        "counter": None,  # nur für HOTP relevant
+        "counter": None,  # only relevant for HOTP
     }
     while not r.eof():
         tag = r.read_tag()
@@ -170,7 +170,7 @@ def parse_otp_parameters(data):
 
 
 def parse_payload(data):
-    """Parst die MigrationPayload: Feld 1 (repeated) = OtpParameters."""
+    """Parses the MigrationPayload: field 1 (repeated) = OtpParameters."""
     r = Reader(data)
     accounts = []
     while not r.eof():
@@ -180,26 +180,26 @@ def parse_payload(data):
         if field == 1 and wire == 2:
             accounts.append(parse_otp_parameters(r.read_bytes(r.read_varint())))
         else:
-            r.skip(wire)  # unbekannte Top-Level-Felder überspringen
+            r.skip(wire)  # skip unknown top-level fields
     return accounts
 
 
 def build_otpauth(account):
-    """Erzeugt die otpauth-URI (nur Nicht-Default-Parameter)."""
+    """Builds the otpauth URI (only non-default parameters)."""
     algo = ALGORITHMS.get(account["algorithm"])
     if algo is None:
-        print(f"  Warnung: Unbekannter Algorithmus-Wert "
-              f"{account['algorithm']}; verwende Default SHA1.", file=sys.stderr)
+        print(f"  Warning: Unknown algorithm value "
+              f"{account['algorithm']}; falling back to SHA1.", file=sys.stderr)
         algo = "SHA1"
     digits = DIGITS.get(account["digits"])
     if digits is None:
-        print(f"  Warnung: Unbekannter digits-Wert {account['digits']}; "
-              f"verwende Default 6.", file=sys.stderr)
+        print(f"  Warning: Unknown digits value {account['digits']}; "
+              f"falling back to 6.", file=sys.stderr)
         digits = 6
     typ = TYPES.get(account["type"])
     if typ is None:
-        print(f"  Warnung: Unbekannter type-Wert {account['type']}; "
-              f"verwende Default TOTP.", file=sys.stderr)
+        print(f"  Warning: Unknown type value {account['type']}; "
+              f"falling back to TOTP.", file=sys.stderr)
         typ = "TOTP"
 
     issuer = (account["issuer"] or "").strip()
@@ -229,8 +229,8 @@ def main(argv):
 
     raw = read_input(argv[1])
     if raw is None:
-        print(f'Fehler: Kein Argument, keine otpauth-migration://-URI und keine '
-              f'Datei "{argv[1]}" gefunden.', file=sys.stderr)
+        print(f'Error: No argument, no otpauth-migration:// URI and no '
+              f'file "{argv[1]}" found.', file=sys.stderr)
         usage()
         return 2
 
@@ -239,25 +239,25 @@ def main(argv):
         payload_bytes = decode_data(extract_data(uri))
         accounts = parse_payload(payload_bytes)
     except ValueError as exc:
-        print(f"Fehler: {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
     if not accounts:
-        print("Fehler: Keine Konten in der MigrationPayload gefunden. "
-              "Die URI könnte unvollständig oder beschädigt sein.",
+        print("Error: No accounts found in the MigrationPayload. "
+              "The URI might be incomplete or corrupted.",
               file=sys.stderr)
         return 1
 
     for idx, acc in enumerate(accounts, start=1):
         uri_out, typ, algo, digits, issuer, name = build_otpauth(acc)
         secret = base64.b32encode(acc["secret"]).decode("ascii").rstrip("=")
-        print(f"Konto {idx}: Issuer='{issuer}'  Name='{name}'")
+        print(f"Account {idx}: Issuer='{issuer}'  Name='{name}'")
         print(f"  Secret (Base32): {secret}")
-        print("  Für Bitwarden einfügen:")
+        print("  Paste into Bitwarden:")
         print(f"    {uri_out}")
         if typ == "HOTP":
-            print("  Warnung: Bitwarden unterstützt kein HOTP! "
-                  "Diese Konto-Daten lassen sich nicht importieren.", file=sys.stderr)
+            print("  Warning: Bitwarden does not support HOTP! "
+                  "These credentials cannot be imported.", file=sys.stderr)
         if idx < len(accounts):
             print()
 

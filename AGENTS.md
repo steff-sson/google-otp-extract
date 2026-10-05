@@ -14,6 +14,7 @@ Guidance for coding agents working in this repository.
 - **Offline always.** No network calls of any kind — ever.
 - Secrets may appear **only** in the tool's intended output. Never log secrets, never include them in tracebacks, never write them to auxiliary files.
 - No telemetry of any kind.
+- All user-facing output and code comments must be in English.
 
 ## Enum authority
 
